@@ -115,12 +115,12 @@ void printGraphSqrt(const MyGraphs<TH>&, const GNames&);
 template <class TH = TH1F>
   MyGraphs<TH>* buildMyGraphs(const GNames& names, vector<TFile*>& signalFiles, vector<TFile*>& backgroundFiles, TFile* dataFile);
 
-static const vector<Color_t> myColors =     {kRed  ,kGreen+1,kOrange-3,kAzure+10,kBlue,  kViolet+1,kYellow  ,kYellow+2,kOrange+3,kGray+3, kMagenta+3, kViolet+5, kOrange-4, kGreen+4};
-static const vector<Color_t> myFillColors = {kRed-4,kGreen-7,kOrange-4,kCyan-9  ,kBlue-9, kViolet-4,kYellow-7,kYellow-2,kOrange-7,kGray  , kMagenta-9, kViolet+5, kOrange-4, kGreen+4};
+static const vector<Color_t> myColors =     {kRed,kYellow+8,kGreen+1,kOrange-3,kAzure+10,kBlue,  kViolet+1,kYellow  ,kYellow+2,kOrange+3,kGray+3, kMagenta+3, kGreen+2, kViolet+5, kOrange-4, kGreen+4};
+static const vector<Color_t> myFillColors = {kRed-4,kYellow+8,kGreen-7,kOrange-4,kCyan-9  ,kBlue-9, kViolet-4,kYellow-7,kYellow-2,kOrange-7,kGray  , kMagenta-9, kGreen+2, kViolet+5, kOrange-4, kGreen+4};
 //vector<Color_t> myFillColors(myColors.size(), 0);
 
-const int _FLIP = -1;
-const char theRegion[] = "CR110";
+const int _FLIP = 1;
+const char theRegion[] = "SR4P";
 TString path = Form("../results/2016/VVGammaAnalyzer_%s/", theRegion);
 
 void VZZGraphs(string sReqCateg = string(""), string sReqType = "", string reqGrName = string("")){
@@ -130,18 +130,63 @@ void VZZGraphs(string sReqCateg = string(""), string sReqType = "", string reqGr
   cout<<"Source path: \""<<path<<"\"\n";
   
   vector<TString> signals = {"ZZGTo4LG"};
-  vector<TString> backgrounds = {"ZZTo4l", "ggTo2e2mu_Contin_MCFM701", "ggTo4e_Contin_MCFM701","ZGToLLG", "ZZZ", "WGToLNuG", "WWZ", "WZZ", "TTWW", "TTZZ", "DYJetsToLL_M50", "TTTo2L2Nu" }; 
+  vector<TString> backgrounds = {"ZZTo4l", "WZTo3LNu","ggTo2e2mu_Contin_MCFM701", "ggTo4e_Contin_MCFM701","ZGToLLG", "ZZZ", "WGToLNuG", "WWZ", "WZZ", "TTWW", "TTZZ", "DYJetsToLL_M50", "WJetsToLNu", "TTTo2L2Nu" }; //add WZ2lnu and Wjets  
   
   std::transform(reqGrName.begin(), reqGrName.end(), reqGrName.begin(), ::tolower);
   std::transform(sReqCateg.begin(), sReqCateg.end(), sReqCateg.begin(), ::tolower);
   
-  std::string region("noGamma");
+  //  std::string region("noGamma");
 
   //#####graphs not categorized by event type#####
   //vector<TString> jetPlots = {};
   
   //vector<TString> variablePlots = {"G Loose: ZZ mass"}; //, "G Loose: ZZG mass", "G Loose: G pt", "G Loose: lead L pt"}; //"G Medium: ZZ mass", "G Medium: ZZG mass", "G Medium: G pt", "G Medium: lead L pt"
-  vector<std::pair<TString,TString>> variablePlots = {
+  vector<std::pair<TString,TString>> variablePlots = {};
+
+  bool fourlep_region  = false;
+  bool threelep_region = false;
+
+  std::string region(theRegion);
+  
+  if (region=="CR3P1F" || region=="CR2P2F" || region=="SR4P") fourlep_region = true;
+
+  if (region=="CR110" || region=="CR101" || region=="CR011") threelep_region = true;
+  if (region=="CR100" || region=="CR001" || region=="CR010") threelep_region = true;
+  if (region=="CR000" || region=="SR3P")                        threelep_region = true;
+
+  if ( fourlep_region )
+    {
+    variablePlots.push_back({"ZZ mass", "m_{4l} ;GeV/c^{2}"});
+    variablePlots.push_back({"ZZ mass", "m_{4l} ;GeV/c^{2}"});
+    variablePlots.push_back({"Z0 mass", "m_{Z0} ;GeV/c^{2}"});
+    variablePlots.push_back({"Z1 mass", "m_{Z1} ;GeV/c^{2}"});
+    variablePlots.push_back({"Z0_l0_pt", "pT_{l0,Z0} ;GeV/c"});
+    variablePlots.push_back({"Z0_l1_pt", "pT_{l1,Z0} ;GeV/c"});
+    variablePlots.push_back({"Z1_l0_pt", "pT_{l0,Z1} ;GeV/c"});
+    variablePlots.push_back({"Z1_l1_pt", "pT_{l1,Z1} ;GeV/c"});
+    }
+
+
+  if( threelep_region )
+    {
+    variablePlots.push_back({"ZW_massT", "m_{T,3l}; GeV/c^{2}"});
+    variablePlots.push_back({"Z_mass",   "m_{Z}; GeV/c^{2}"   });
+    variablePlots.push_back({"W_massT",  "m_{T,W}; GeV/c^{2}" });
+    variablePlots.push_back({"Z_l0_pt",  "pT_{l0,Z} ;GeV/c"   });
+    variablePlots.push_back({"Z_l1_pt",  "pT_{l1,Z} ;GeV/c"   });
+    variablePlots.push_back({"W_l_pt",   "pT_{l,W} ;GeV/c"    });
+    variablePlots.push_back({"W_MET_pt", "MET ;GeV/c"         });
+    }
+
+  if( region=="CRLFR" )
+    {
+    variablePlots.push_back({"ZL_mass", "m_{3l} ;GeV/c^{2}"});
+    variablePlots.push_back({"Z_mass",  "m_{Z} ;GeV/c^{2}" });
+    variablePlots.push_back({"Z_l0_pt", "pT_{l0,Z} ;GeV/c" });
+    variablePlots.push_back({"Z_l1_pt", "pT_{l1,Z} ;GeV/c" });
+    variablePlots.push_back({"L_pt",    "pT_{l} ;GeV/c"    });
+    }
+
     //make_pair("G Loose: ZZ mass" , "3P1F #gamma_{loose}: ZZ mass;m [GeV/c^{2}]"),
     //make_pair("G Loose: ZZG mass", "3P1F #gamma_{loose}: ZZ#gamma mass;m [GeV/c^{2}]"),
     //make_pair("G Loose: G pt",     "3P1F #gamma_{loose}: #gamma p_{t};p_{t} [GeV/c]"),
@@ -150,21 +195,19 @@ void VZZGraphs(string sReqCateg = string(""), string sReqType = "", string reqGr
     //make_pair("G Medium: ZZG mass", Form("%s #gamma_{medium}: ZZ#gamma mass;m [GeV/c^{2}]", theRegion)),
     //make_pair("G Medium: G pt",     Form("%s #gamma_{medium}: #gamma p_{t};p_{t} [GeV/c]", theRegion)),
     //make_pair("G Medium: lead L pt",Form("%s #gamma_{medium}: leading lepton p_{t};p_{t} [GeV/c]", theRegion))
-
-    /*    make_pair(region+": ZZ mass" , Form("%s : ZZ mass;m [GeV/c^{2}]", theRegion)),
-    make_pair(region+": Z0 mass" , Form("%s : ZZ mass;m [GeV/c^{2}]", theRegion)),
-    make_pair(region+": Z1 mass" , Form("%s : ZZ mass;m [GeV/c^{2}]", theRegion)),*/
-
-    make_pair("B: pt mu1" ,  Form("%s :#pt #mu1",theRegion)),
-    make_pair("B: pt mu2" ,  Form("%s :#pt #mu2",theRegion)),
-    make_pair("B: eta mu1" ,  Form("%s :#eta #mu1",theRegion)),
-    make_pair("B: eta mu2" ,  Form("%s :#eta #mu2",theRegion)),
-    make_pair(region+": lead L pt",Form("%s : leading lepton p_{t};p_{t} [GeV/c]", theRegion)),
-
-    make_pair("C: n leptons" ,Form("%s : n leptons ",theRegion)),
+    //    make_pair(region+": ZZ mass" , Form("%s : ZZ mass;m [GeV/c^{2}]", theRegion)),
+    //make_pair(region+": Z0 mass" , Form("%s : ZZ mass;m [GeV/c^{2}]", theRegion)),
+    //make_pair(region+": Z1 mass" , Form("%s : ZZ mass;m [GeV/c^{2}]", theRegion)),*/
+    //make_pair("B: pt mu1" ,  Form("%s :#pt #mu1",theRegion)),
+    //make_pair("B: pt mu2" ,  Form("%s :#pt #mu2",theRegion)),
+    //make_pair("B: eta mu1" ,  Form("%s :#eta #mu1",theRegion)),
+    //make_pair("B: eta mu2" ,  Form("%s :#eta #mu2",theRegion)),
+    //make_pair(region+": lead L pt",Form("%s : leading lepton p_{t};p_{t} [GeV/c]", theRegion)),
+    //make_pair("C: n leptons" ,Form("%s : n leptons ",theRegion)),
     //    make_pair(region+": ZZ mass" , Form("%s : ZZ mass;m [GeV/c^{2}]", theRegion))
     //make_pair(region+"Z0 mass","noGamma: Z0 mass;1m_{Z0} noGamma")
-  };
+
+
   
   //#####end graph names#####
   TFile* dataFile = openRootFile(path, "data");
