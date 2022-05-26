@@ -97,41 +97,51 @@ TH1F* sqrtGraph(const TH1F* const origin); //Creates a copy which is modified
 bool doThisGraphName(TString graphName, TString reqGrName);
 
 template <size_t N, class TH=TH1F>
-  void newPrintGraph(const MyGraphs<TH>& theGraphs, const GNames& theNames, const bitset<N>& typeToDo);
+void newPrintGraph(const MyGraphs<TH>& theGraphs, const GNames& theNames, const bitset<N>& typeToDo, const string&);
 
 // Specific types of graph
 template <class TH>
 void compareCutGraphs(const MyGraphs<TH>&, const GNames&); //Uses helper functions
 template <class TH>
-void printGraphSame(const MyGraphs<TH>&, const GNames&);
+void printGraphSame(const MyGraphs<TH>&, const GNames&, const string&);
 template <class TH>
-void printGraphStack(const MyGraphs<TH>&, const GNames&);
+void printGraphStack(const MyGraphs<TH>&, const GNames&, const string&);
 template <class TH>
-void printGraphRatio(const MyGraphs<TH>&, const GNames&);
+void printGraphRatio(const MyGraphs<TH>&, const GNames&, const string& );
 template <class TH>
-void printGraphSqrt(const MyGraphs<TH>&, const GNames&);
+void printGraphSqrt(const MyGraphs<TH>&, const GNames&, const string&);
 
 //Struct building
 template <class TH = TH1F>
   MyGraphs<TH>* buildMyGraphs(const GNames& names, vector<TFile*>& signalFiles, vector<TFile*>& backgroundFiles, TFile* dataFile);
 
-static const vector<Color_t> myColors =     {kRed,kYellow+8,kGreen+1,kOrange-3,kAzure+10,kBlue,  kViolet+1,kYellow  ,kYellow+2,kOrange+3,kGray+3, kMagenta+3, kGreen+2, kViolet+5, kOrange-4, kGreen+4};
-static const vector<Color_t> myFillColors = {kRed-4,kYellow+8,kGreen-7,kOrange-4,kCyan-9  ,kBlue-9, kViolet-4,kYellow-7,kYellow-2,kOrange-7,kGray  , kMagenta-9, kGreen+2, kViolet+5, kOrange-4, kGreen+4};
+static const vector<Color_t> myColors =     {kRed,kYellow+8,kGreen-7,kOrange-3,kAzure+10,kBlue,  kViolet+1,kYellow  ,kYellow+2,kOrange+3,kGray+3, kMagenta+3, kGreen+2, kViolet+8, kOrange-4, kGreen+8, kBlack, kMagenta-5, kBlue+6, kRed-3, kAzure-4, kViolet-5};
+static const vector<Color_t> myFillColors = {kRed,kYellow+8,kGreen-7,kOrange-3,kAzure+10,kBlue,  kViolet+1,kYellow  ,kYellow+2,kOrange+3,kGray+3, kMagenta+3, kGreen+2, kViolet+8, kOrange-4, kGreen+8, kBlack, kMagenta-5, kBlue+6, kRed-3, kAzure-4, kViolet-5};
 //vector<Color_t> myFillColors(myColors.size(), 0);
 
-const int _FLIP = 1;
-const char theRegion[] = "SR4P";
-TString path = Form("../results/2016/VVGammaAnalyzer_%s/", theRegion);
+const float  _FLIP = 1;
+//const char theRegion[] = "SR4P";
+const std::vector<std::string> regions{"SR4P", "CR3P1F","CR110", "CR101", "CR011", "CR100", "CR001", "CR010", "CR000"};
+
+//const std::vector<std::string> regions{"CR3P1F"};
 
 void VZZGraphs(string sReqCateg = string(""), string sReqType = "", string reqGrName = string("")){
   TH1::SetDefaultSumw2(true);
   //  const char theRegion[] = "CR3P1F";
   //TString path = Form("../results/2016/VVGammaAnalyzer_%s/", theRegion);
-  cout<<"Source path: \""<<path<<"\"\n";
+  //cout<<"Source path: \""<<path<<"\"\n";
+  
+for (auto & region : regions)   
+{    
+  //TString theRegion(region);
+  //  TString theRegion = TString(&region);
+
+  TString path = Form("../temp/2016/VVGammaAnalyzer_%s/", region.c_str());
   
   vector<TString> signals = {"ZZGTo4LG"};
-  vector<TString> backgrounds = {"ZZTo4l", "WZTo3LNu","ggTo2e2mu_Contin_MCFM701", "ggTo4e_Contin_MCFM701","ZGToLLG", "ZZZ", "WGToLNuG", "WWZ", "WZZ", "TTWW", "TTZZ", "DYJetsToLL_M50", "WJetsToLNu", "TTTo2L2Nu" }; //add WZ2lnu and Wjets  
+  vector<TString> backgrounds = {"ZZTo4l", "WZTo3LNu","ggTo4l", "ZGToLLG", "WGToLNuG", "triboson", "DYJetsToLL_M50", "WJetsToLNu", "TTWW", "TTZZ", "TTTo2L2Nu","tW","tZq","singleT","TTZJets_APV", "TTZToLLNuNu_M10" }; //add WZ2lnu and Wjets  //"ggTo2e2mu_Contin_MCFM701, "ZZZ", "WWZ", "WZZ", "ggTo4e_Contin_MCFM701","ggTo4mu_Contin_MCFM701
   
+
   std::transform(reqGrName.begin(), reqGrName.end(), reqGrName.begin(), ::tolower);
   std::transform(sReqCateg.begin(), sReqCateg.end(), sReqCateg.begin(), ::tolower);
   
@@ -146,7 +156,7 @@ void VZZGraphs(string sReqCateg = string(""), string sReqType = "", string reqGr
   bool fourlep_region  = false;
   bool threelep_region = false;
 
-  std::string region(theRegion);
+  //  std::string region(theRegion);
   
   if (region=="CR3P1F" || region=="CR2P2F" || region=="SR4P") fourlep_region = true;
 
@@ -156,14 +166,23 @@ void VZZGraphs(string sReqCateg = string(""), string sReqType = "", string reqGr
 
   if ( fourlep_region )
     {
-    variablePlots.push_back({"ZZ mass", "m_{4l} ;GeV/c^{2}"});
-    variablePlots.push_back({"ZZ mass", "m_{4l} ;GeV/c^{2}"});
-    variablePlots.push_back({"Z0 mass", "m_{Z0} ;GeV/c^{2}"});
-    variablePlots.push_back({"Z1 mass", "m_{Z1} ;GeV/c^{2}"});
+    variablePlots.push_back({"ZZ_mass", "m_{4l} ;GeV/c^{2}"});
+    variablePlots.push_back({"ZZ_pT",   "pT_{ZZ} ;GeV/c"});
+    variablePlots.push_back({"2e2mu_mass", "m_{2e2mu} ;GeV/c^{2}"});
+    variablePlots.push_back({"4e_mass"   , "m_{4e} ;GeV/c^{2}"});
+    variablePlots.push_back({"4mu_mass"  , "m_{4mu} ;GeV/c^{2}"});
+    variablePlots.push_back({"2e2mu_pT",   "pT_{2e2mu} ;GeV/c"});
+    variablePlots.push_back({"4e_pT",   "pT_{4e} ;GeV/c"});
+    variablePlots.push_back({"4mu_pT",   "pT_{4mu} ;GeV/c"});
+
+    variablePlots.push_back({"Z0_mass", "m_{Z0} ;GeV/c^{2}"});
+    variablePlots.push_back({"Z1_mass", "m_{Z1} ;GeV/c^{2}"});
     variablePlots.push_back({"Z0_l0_pt", "pT_{l0,Z0} ;GeV/c"});
     variablePlots.push_back({"Z0_l1_pt", "pT_{l1,Z0} ;GeV/c"});
     variablePlots.push_back({"Z1_l0_pt", "pT_{l0,Z1} ;GeV/c"});
-    variablePlots.push_back({"Z1_l1_pt", "pT_{l1,Z1} ;GeV/c"});
+    variablePlots.push_back({"Z1_l1_pt", "pT_{l1,Z1} ;GeV/c"});  
+    variablePlots.push_back({"AAA cuts u"," cutflow u"});
+    variablePlots.push_back({"AAA cuts w"," cutflow w"});
     }
 
 
@@ -171,11 +190,18 @@ void VZZGraphs(string sReqCateg = string(""), string sReqType = "", string reqGr
     {
     variablePlots.push_back({"ZW_massT", "m_{T,3l}; GeV/c^{2}"});
     variablePlots.push_back({"Z_mass",   "m_{Z}; GeV/c^{2}"   });
+    variablePlots.push_back({"2emu_massT", "m_{T,2emu}; GeV/c^{2}"});
+    variablePlots.push_back({"2mue_massT", "m_{T,2mue}; GeV/c^{2}"});
+    variablePlots.push_back({"3e_massT", "m_{T,3e}; GeV/c^{2}"});
+    variablePlots.push_back({"3mu_massT", "m_{T,3mu}; GeV/c^{2}"});
+    
     variablePlots.push_back({"W_massT",  "m_{T,W}; GeV/c^{2}" });
     variablePlots.push_back({"Z_l0_pt",  "pT_{l0,Z} ;GeV/c"   });
     variablePlots.push_back({"Z_l1_pt",  "pT_{l1,Z} ;GeV/c"   });
     variablePlots.push_back({"W_l_pt",   "pT_{l,W} ;GeV/c"    });
     variablePlots.push_back({"W_MET_pt", "MET ;GeV/c"         });
+    variablePlots.push_back({"AAA cuts u"," cutflow u"});
+    variablePlots.push_back({"AAA cuts w"," cutflow w"});
     }
 
   if( region=="CRLFR" )
@@ -316,7 +342,7 @@ GNames theNames(nameTitle.first, nameTitle.second, signals, backgrounds);
 MyGraphs<TH1F> theGraphs = *buildMyGraphs(theNames, signalFiles, backgroundFiles, dataFile);
 //#####--------------- #####
 
-newPrintGraph(theGraphs, theNames, typeToDo);
+ newPrintGraph(theGraphs, theNames, typeToDo, region);
 /*
 if(graphName == "mll"){
 int finalCut = (int)(420.)/10;
@@ -350,6 +376,8 @@ for(size_t i = 0; i < backgroundFiles.size(); i++)
 backgroundFiles.at(i)->Close();
 }
 
+
+}//end loop regions
 
 
 // ################################################################################################
@@ -610,7 +638,7 @@ template<class TH = TH1F>
 
 // ##################################################################
 template <class TH>
-void printGraphSame(const MyGraphs<TH>& graphs, const GNames& names){
+void printGraphSame(const MyGraphs<TH>& graphs, const GNames& names, const string& region){
   #ifdef TEST_MODE
   cout<<"-----printGraphSame: "<<names.graphName;
   #endif
@@ -618,6 +646,7 @@ void printGraphSame(const MyGraphs<TH>& graphs, const GNames& names){
   TCanvas *c0 = new TCanvas(names.graphName+" nostack", names.graphName+" nostack", 10,0,1280,1024);
   TLegend* legend0 = new TLegend(0.75,0.68,0.98,0.95);
   
+
   for(size_t i = 0; i < graphs.vhBkgs.size(); i++){
     if(graphs.vhBkgs.at(i) == nullptr){
       cout<<"\n\tError: missing \""<<names.graphName<<"\" from \""<<names.bkgGrNames.at(i)<<'\n';
@@ -652,12 +681,12 @@ void printGraphSame(const MyGraphs<TH>& graphs, const GNames& names){
   //c0->BuildLegend(0.7,0.8,0.95,0.95);//It's a kind of magic
   TString name = names.graphName;
   name.ReplaceAll(' ', '_');
-  c0->SaveAs(path+theRegion+name+"_nostack.png");
+  c0->SaveAs("plots/"+region+name+"_nostack.png");
 
 }
 
 template <class TH>
-void printGraphStack(const MyGraphs<TH>& graphs, const GNames& names){
+void printGraphStack(const MyGraphs<TH>& graphs, const GNames& names,const string& region){
   #ifdef TEST_MODE
   cout<<"\n-----printGraphStack: "<<names.graphName<<'\n';
   #endif
@@ -670,7 +699,7 @@ void printGraphStack(const MyGraphs<TH>& graphs, const GNames& names){
       continue;
     }
     TH* cg = (TH*)(graphs.vhSigs.at(i)->Clone(names.sigGrNames.at(i)));
-    cg->Scale(_FLIP);
+    //cg->Scale(_FLIP);
     cg->SetTitle(names.sigGrNames.at(i));
     cg->SetLineColor(myColors.at(i));
     cg->SetFillColor(myFillColors.at(i));
@@ -684,6 +713,8 @@ void printGraphStack(const MyGraphs<TH>& graphs, const GNames& names){
     }
     TH* cg = (TH*)(graphs.vhBkgs.at(i)->Clone(names.bkgGrNames.at(i)));
     cg->Scale(_FLIP);
+    std::string name_gg(names.bkgGrNames.at(i));
+    if (name_gg.find("ggTo") != std::string::npos) cg->Scale(0.001);
     cg->SetTitle(names.bkgGrNames.at(i));
     cg->SetLineColor(myColors.at(i + graphs.vhSigs.size()));
     cg->SetFillColor(myFillColors.at(i + graphs.vhSigs.size()));
@@ -697,11 +728,11 @@ void printGraphStack(const MyGraphs<TH>& graphs, const GNames& names){
 
   TString name = names.graphName;
   name.ReplaceAll(' ', '_');
-  c1->SaveAs(path+theRegion+name+"_stack.png");
+  c1->SaveAs("plots/"+region+name+"_stack.png");
 }
 
 template <class TH>
-void printGraphRatio(const MyGraphs<TH>& graphs, const GNames& names){
+void printGraphRatio(const MyGraphs<TH>& graphs, const GNames& names,const string& region){
   #ifdef TEST_MODE
   cout<<"-----printGraphRatio: "<<names.graphName<<'\n';
   #endif
@@ -714,7 +745,7 @@ void printGraphRatio(const MyGraphs<TH>& graphs, const GNames& names){
       continue;
     }
     TH* cg = (TH*)(graphs.vhSigs.at(i)->Clone(names.sigGrNames.at(i)));
-    cg->Scale(_FLIP);
+    //cg->Scale(_FLIP);
     cg->SetTitle(names.sigGrNames.at(i));
     cg->SetLineColor(myColors.at(i));
     cg->SetFillColor(myFillColors.at(i));
@@ -728,13 +759,15 @@ void printGraphRatio(const MyGraphs<TH>& graphs, const GNames& names){
     }
     TH* cg = (TH*)(graphs.vhBkgs.at(i)->Clone(names.bkgGrNames.at(i)));
     cg->Scale(_FLIP);
+    std::string name_gg(names.bkgGrNames.at(i));
+    if (name_gg.find("ggTo") != std::string::npos) cg->Scale(0.001);
     cg->SetTitle(names.bkgGrNames.at(i));
     cg->SetLineColor(myColors.at(i + graphs.vhSigs.size()));
     cg->SetFillColor(myFillColors.at(i + graphs.vhSigs.size()));
     stack1->Add(cg);
   }
   
-  graphs.data->Scale(_FLIP);
+  //graphs.data->Scale(_FLIP);
   graphs.data->SetTitle("data");
   graphs.data->SetMarkerStyle(kFullCircle);
   graphs.data->SetMarkerColor(kBlack);
@@ -763,11 +796,11 @@ void printGraphRatio(const MyGraphs<TH>& graphs, const GNames& names){
 
   TString name = names.graphName;
   name.ReplaceAll(' ', '_');
-  c1->SaveAs(path+theRegion+name+"_ratio.png");
+  c1->SaveAs("plots/"+region+name+"_ratio.png");
 }
 
 template <class TH>
-void printGraphSqrt(const MyGraphs<TH>& graphs, const GNames& names){
+void printGraphSqrt(const MyGraphs<TH>& graphs, const GNames& names,const string& region){
   #ifdef TEST_MODE
   cout<<"\n----printGraphSqrt: "<<names.graphName;
   #endif
@@ -840,26 +873,26 @@ void printGraphSqrt(const MyGraphs<TH>& graphs, const GNames& names){
 
   TString name = names.graphName;
   name.ReplaceAll(' ', '_');
-  cIS->SaveAs(path+theRegion+name+"_sqrt.png");
+  cIS->SaveAs("plots/"+region+name+"_sqrt.png");
 }
 
 // ########################## All the graphs in one place ####################################
 template <size_t N, class TH=TH1F>
-  void newPrintGraph(const MyGraphs<TH>& theGraphs, const GNames& theNames, const bitset<N>& typeToDo){
+void newPrintGraph(const MyGraphs<TH>& theGraphs, const GNames& theNames, const bitset<N>& typeToDo, const string& region){
   #ifdef TEST_MODE
   cout<<"-----newPrintGraph for \""<<theNames.graphName<<"\"\n";
   #endif
   if(typeToDo.test(0))
-    printGraphSame(theGraphs, theNames);
+    printGraphSame(theGraphs, theNames, region);
   
   if(typeToDo.test(1))
-    printGraphStack(theGraphs, theNames);
+    printGraphStack(theGraphs, theNames, region);
   
   if(typeToDo.test(2))
-    printGraphRatio(theGraphs,theNames);
+    printGraphRatio(theGraphs,theNames, region);
   
   if(typeToDo.test(3))
-    printGraphSqrt(theGraphs,theNames);
+    printGraphSqrt(theGraphs,theNames, region);
   #ifdef TEST_MODE
   cout<<"-----returning from printing \""<<theNames.graphName<<"\"\n";
   #endif
@@ -888,7 +921,7 @@ template <class TH = TH1F>
       cout<<"\tError: missing \""<<names.graphName<<"\" from \""<<names.sigGrNames.at(i)<<"\"\n";
       continue;//return
     }
-    TH* pippoC = (TH*) ((TH1*)pippo->Clone(strippedGrName))->Rebin(5);
+    TH* pippoC = (TH*) ((TH1*)pippo->Clone(strippedGrName))->Rebin(1);
     vhSignals.push_back( pippoC );
     if(isReverse)
       vhSigIntegr.push_back( reverseIntegrGraph(pippoC) );
@@ -903,7 +936,7 @@ template <class TH = TH1F>
       cout<<"\n\tError: missing \""<<names.graphName<<"\" from \""<<names.bkgGrNames.at(i)<<"\"\n";
       continue;//return;
     }
-    TH* pippoC = (TH*) ((TH1*) pippo->Clone(strippedGrName))->Rebin(5);
+    TH* pippoC = (TH*) ((TH1*) pippo->Clone(strippedGrName))->Rebin(1);
     vhBackgrounds.push_back( pippoC );
     if(isReverse)
       vhBackgrIntegr.push_back( reverseIntegrGraph(pippoC) );
@@ -912,7 +945,7 @@ template <class TH = TH1F>
   }
   
   data = (TH*) openGraph(dataFile, names.graphName, "data");
-  if(data) data->Rebin(5);
+  if(data) data->Rebin(1);
   
   #ifdef TEST_MODE
   cout<<"-----Returning from \""<<names.graphName<<"\"\n";

@@ -189,6 +189,8 @@ public:
   
   // Photons
   std::vector<phys::Photon> *photons; TBranch *b_photons;
+  //std::vector<phys::Photon> *pphotons; TBranch *b_pphotons;
+  //std::vector<phys::Photon> *photons;
 
   // Bosons Candidate
   std::vector<phys::Boson<phys::Jet> >      *VhadCand; TBranch *b_VhadCand;

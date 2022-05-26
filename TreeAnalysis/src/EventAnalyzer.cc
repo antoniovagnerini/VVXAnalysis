@@ -101,8 +101,9 @@ void EventAnalyzer::Init(TTree *tree)
   jetsAK8  = new std::vector<phys::Jet>();
   
   // Photons
-  photons = 0;      b_photons = 0;    theTree->SetBranchAddress("photons", &photons, &b_photons);
-  jetsAK8  = new std::vector<phys::Jet>();
+  //pphotons  =0;   b_pphotons = 0;  theTree->SetBranchAddress("pphotons", &pphotons, &b_pphotons);
+  photons = 0;    b_photons = 0;   theTree->SetBranchAddress("photons" , &photons,  &b_photons);
+  //photons = new std::vector<phys::Photon>();
 
   // Bosons   
   Vhad = new std::vector<phys::Boson<phys::Jet> > ()    ; VhadCand = 0; b_VhadCand = 0; theTree->SetBranchAddress("VhadCand", &VhadCand, &b_VhadCand);
@@ -202,6 +203,7 @@ Int_t EventAnalyzer::GetEntry(Long64_t entry){
   if(pjetsAK8)    stable_sort(pjetsAK8->begin(),    pjetsAK8->end(),    phys::PtComparator());
   if(pgenJetsAK8) stable_sort(pgenJetsAK8->begin(), pgenJetsAK8->end(), phys::PtComparator());
   if(photons)     stable_sort(photons->begin(),   photons->end(),   phys::PtComparator());
+  //if(pphotons)     stable_sort(pphotons->begin(),   pphotons->end(),   phys::PtComparator());
 	
   // Some selection on jets
   jets->clear(); centralJets->clear(); 
@@ -233,6 +235,14 @@ Int_t EventAnalyzer::GetEntry(Long64_t entry){
     foreach(const phys::Particle &jet, *pgenJetsAK8)
       if(jet.pt() > 30 && fabs(jet.eta()) < 4.7) genJetsAK8->push_back(jet);
   }  
+  
+  //Apply photon SF and uncertainty
+  /*photons->clear();
+  if(pphotons){
+    foreach(const phys::Photon &photon, *pphotons)
+      //add method in commons with SF
+      photons->push_back(photon);
+      }*/
   
   Vhad->clear();
   if(VhadCand){
@@ -284,7 +294,7 @@ Int_t EventAnalyzer::GetEntry(Long64_t entry){
     }
   }
     
-
+  
   theHistograms->fill("weight_full"  , "All weights applied"                                    , 1200, -2, 10, theWeight);
   theHistograms->fill("weight_bare"  , "All weights, but efficiency and fake rate scale factors", 1200, -2, 10, theSampleInfo.weight());
   theHistograms->fill("weight_pu"    , "Weight from PU reweighting procedure"                   , 1200, -2, 10, theSampleInfo.puWeight());
@@ -292,6 +302,7 @@ Int_t EventAnalyzer::GetEntry(Long64_t entry){
   theHistograms->fill("weight_mcProc", "Weight from MC intrinsic event weight"                  , 1200, -2, 10, theSampleInfo.mcWeight());
   theHistograms->fill("weight_efficiencySF", "Weight from data/MC lepton efficiency"            , 1200, -2, 10, ZZ->efficiencySF());
   theHistograms->fill("weight_fakeRateSF"  , "Weight from fake rate scale factor"               , 1200, -2, 10, ZZ->fakeRateSF());
+  theHistograms->fill("weight_fakeRateSF_effSF"  , "Weight from fake rate scale factor times eff"  , 1200, -2, 10, ZZ->fakeRateSF()*ZZ->efficiencySF());
   
   
   theInputWeightedEvents += theWeight;
