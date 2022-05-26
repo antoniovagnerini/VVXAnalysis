@@ -1,30 +1,43 @@
 #!/bin/bash
 
-##################################################
-#  Executes the analysis on data samples         #
-#                                                #
-#  Author: E. Racca (eleonora.racca@cern.ch)     #
-##################################################
 
-
-# ~~~~~ Setting options
 prefixcsvfile="../Producers/python/samples_"
 suffixcsvfile="_Data.csv"
-haddOpt="-k -f -j $(grep processor /proc/cpuinfo | wc -l)"
+haddOpt="-k -f"  # "-j $(grep processor /proc/cpuinfo | wc -l)"
 rmOpt="-r -f"
+analyzer=VVXAnalyzer  # VVGammaAnalyzer
 years="2016"
-regions="CR110"
+
+regions="SR4P;CR2P2F;CR3P1F;SR3P;CR000;CR001;CR010;CR011;CR100;CR101;CR110;SR2P"
+options="--nofr --fpw"
+
+eras="Bver1 Bver2 Chipm Dhipm Ehipm Fhipm F G H"
+
+make || exit
 
 # ~~~~~ Analysis on data
 echo "--- Analyses on Data ---"
 echo "  "
 
 for year in $years ; do
-    # csv file
     csvfile=$prefixcsvfile${year}UL$suffixcsvfile
-    
-    for reg in $regions ; do				
-	./python/run.py VVGammaAnalyzer data -y $year -r $reg -c $csvfile
+
+    for era in $eras ; do			
+	echo $analyzer -y $year era $era -r $regions -c $csvfile $options -d samples/Data
+	./python/run.py $analyzer 2016$era -y $year -r $regions -c $csvfile $options -d samples/Data &> logdir/data_${year}${era}.log &
+    done
+
+    wait
+
+    for region in $(echo $regions | tr ';' ' ') ; do
+	folder="results/$year/${analyzer}_${region}"
+	(
+	    cd $folder
+	    for era in $eras ; do
+		ls | grep -q ".\+${year}${era}.root" && hadd $haddOpt ${year}${era}.root $(ls | grep ".\+${year}${era}.root") || echo "Warning: no files for ${year}${era}.root"
+	    done
+	    hadd $haddOpt data.root $(printf "${year}%s.root " $eras)  # printf reuses the format string to consume all of its arguments
+	)
     done
 done
 

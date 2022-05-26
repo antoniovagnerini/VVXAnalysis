@@ -14,14 +14,19 @@ from Colours import *
 ############################## User's inputs ###############################
 ############################################################################
 # FIXME: change name
-regions_allowed = ['SR4P', 'CR3P1F' , 'CR2P2F' , 'SR4P_1L', 'SR4P_1P', 'CR4P_1F',    
-           'SR3P', 'CR110'  , 'CR101'  , 'CR011'  , 'CR100'  , 'CR001'  , 'CR010', 'CR000', 'SR3P_1L', 'SR3P_1P', 'CR3P_1F', 'CRLFR',      
-           'SR2P', 'SR2P_1L', 'SR2P_1P', 'CR2P_1F', 'CR', 
-           'SR_HZZ', 'CR2P2F_HZZ', 'CR3P1F_HZZ', 'MC_HZZ',     
-           'MC']
-_all_regions = ['SR4P', 'CR3P1F', 'SR3P', 'CR110', 'CR101', 'CR011', 'CR100', 'CR001', 'CR010', 'CR000', 'SR2P']  # Regions tu run on when "all" are requested
+regions_allowed = ['SR4P', 'CR3P1F' , 'CR2P2F' , 'SR4P_1L', 'SR4P_1P', 'CR4P_1F', 'CR4L',    
+                   'SR3P', 'CR110'  , 'CR101'  , 'CR011'  , 'CR100'  , 'CR001'  , 'CR010', 'CR000', 'SR3P_1L', 'SR3P_1P', 'CR3P_1F', 'CRLFR', 'CR3L',
+                   'SR2P', 'SR2P_1L', 'SR2P_1P', 'CR2P_1F', 
+                   'SR_HZZ', 'CR2P2F_HZZ', 'CR3P1F_HZZ', 'CR_HZZ', 'MC_HZZ',     
+                   'MC']
 
+_all_regions = ['SR4P', 'CR3P1F', 'CR2P2F', 'SR3P', 'CR110', 'CR101', 'CR011', 'CR100', 'CR001', 'CR010', 'CR000', 'SR2P']  # Regions tu run on when "all" are requested
 
+CR4L_regions = ['CR3P1F', 'CR2P2F']
+
+CR3L_regions = ['CR110', 'CR101', 'CR011', 'CR100', 'CR001', 'CR010', 'CR000']
+
+CR_HZZ_regions = ['CR3P1F_HZZ', 'CR2P2F_HZZ']
 
 years   = [2016,2017,2018]
 
@@ -29,12 +34,18 @@ parser = OptionParser(usage="usage: %prog <analysis> <sample> [options]")
 
 parser.add_option("-r", "--region", dest="regions",
                   default="SR4P",
-                  help="Region type are {0:s}. Default is SR.".format(', '.join(regions_allowed)))
+                  help="Region type are {0:s}. Default is SR4P.".format(', '.join(regions_allowed)))
 
 
 parser.add_option("-e", "--external-cross-section", dest="getExternalCrossSectionFromFile",
                   action="store_true",
+                  default = False,
                   help="Use this option if you want to force to read again the cross-section from the csv file")
+
+parser.add_option("-i", "--internal-cross-section", dest="useInternalCrossSection",
+                  action="store_true",
+                  default = False,
+                  help="Use this option if you want to force to use the internal cross section of the original sample")
 
 parser.add_option("-y", "--year", dest="year",
                   type='int',
@@ -82,7 +93,6 @@ parser.add_option("--fpw","--force-pos-weight", dest="forcePosWeight",
                   help="Force the weight to be positive.")
 
 
-
 (options, args) = parser.parse_args()
 
 analysis       = args[0]
@@ -91,28 +101,43 @@ regions        = options.regions
 doSF           = options.doSF
 unblind        = options.unblind
 nofr           = options.nofr
-forcePosWeight =options.forcePosWeight
+forcePosWeight = options.forcePosWeight
+
+#samples = list(set(typeofsample.strip(';,').split( (';' if ';' in typeofsample else ',') )))
 
 if doSF:
     print "Option temporarily disabled!"
     sys.exit(1)
 maxNumEvents = options.maxNumEvents
+
 year         = options.year
+if year not in years:
+    print "Unknown year", year
+    sys.exit(1)
+
 luminosity   = options.luminosity
 
 regions = list(set(regions.strip(';,').split( (';' if ';' in regions else ',') )))
+    
 for region in regions:  
-  if region not in regions_allowed:
-    print region, "is an unknown region. Run {0:s} -h for more details.".format(sys.argv[0])
-    print "Multiple regions must be separated by a ';'"
-    sys.exit(1)
+    if region not in regions_allowed and not region == 'all':
+        print region, "is an unknown region. Run {0:s} -h for more details.".format(sys.argv[0])
+        print "Multiple regions must be separated by a ';'"
+        sys.exit(1)
+
+if len(regions) == 1:
+    region = regions[0]
 
 # Some more logic for regions
 tmp = list(regions)  # temporary copy
 if 'all' in regions:
-    regions = ['all']
+    regions = _all_regions
 elif 'MC' in regions:
     regions = ['MC']
+elif 'CR4L' in regions:
+    regions = CR4L_regions
+elif 'CR3L' in regions:
+    regions = CR3L_regions
 else:
     if 'CRLFR' in regions:
         regions = [ r for r in regions if not r == 'CR110']  # Until we implement a MET cut, these two overlap
@@ -122,13 +147,16 @@ else:
         regions = [ r for r in regions if not r.startswith(('SR3P_', 'CR3P_')) ]
     if 'SR2P' in regions:
         regions = [ r for r in regions if not r.startswith(('SR2P_', 'CR2P_')) ]
-
+        
 if(len(regions) != len(tmp)):
     print "WARN: some regions have been dropped to avoid overlap:", [r for r in tmp if r not in regions]
     print "Remaining regions:", regions
 
-getExternalCrossSectionFromFile = False if options.getExternalCrossSectionFromFile is None else options.getExternalCrossSectionFromFile
-
+isData = False
+if typeofsample.startswith( ('DoubleMu', 'DoubleEle', 'MuEG', 'Single', 'MuonEG', 'DoubleEG', str(year), 'test', 'data') ):  # giving a tuple of prefixes returns true if at least one matches
+    luminosity = -1
+    isData = True
+    
 csvfile = options.csvfile
 
 ###########################################################################
@@ -165,12 +193,6 @@ if (not int(output) ==1):
     print "If you have not mispelled the name of your analysis, then please register it adding {0:s} in the constructor of {1:s} and recompile the code.".format(howToRegister, registry)
     sys.exit(1)
     
-isData = False
-# FIXME: to be tested the new line
-#if typeofsample.startswith( ('DoubleMu', 'DoubleEle', 'MuEG', 'Single', 'MuonEG', 'DoubleEG', str(year), 'test') ):  # giving a tuple of prefixes returns true if at least one matches
-if typeofsample[0:8] == 'DoubleMu' or typeofsample[0:9] == 'DoubleEle' or typeofsample[0:4] == 'MuEG' or typeofsample[0:6] == 'Single' or typeofsample[0:4] == 'test' or  typeofsample[0:6] == 'MuonEG' or  typeofsample[0:6] == 'MuonEG' or  typeofsample[0:8] == 'DoubleEG' or typeofsample[0:4] == str(year):
-    luminosity = -1
-    isData = True
 
 
     
@@ -186,9 +208,12 @@ if isData:
 else:
     print "Running on", Blue("MC")
 print "Sample/type of samples:", Blue(typeofsample)
-print "Get (again) cross sections from csv file: ", Blue(getExternalCrossSectionFromFile)
+print "Get (again) cross sections from csv file: ", Blue(options.getExternalCrossSectionFromFile)
+print "Use internal cross section from sample: ", Blue(options.useInternalCrossSection), '[TODO]'
 print "Region type: ", Blue(regions)
 print "Use internal scale factor: ",Blue(doSF)
+
+print region
 
 ############################################################################
 
@@ -240,11 +265,11 @@ def run(executable, analysis, typeofsample, regions, year, luminosity, maxNumEve
     if len(datasets) == 0:
         datasets = getSamplesBy('identifier',typeofsample,csvfile)
     if len(datasets) == 0 and not typeofsample == 'test':
-        print Important('Error! This sample is not available!'), typeofsample
-
-    sampleprefix = ''
-
+        print Warning('The sample {0:s} is not available in the CSV!'.format(typeofsample))
+        return 
     
+    sampleprefix = ''
+  
 
     ### Override configuration, for test only ###
     if typeofsample == 'test':
@@ -255,29 +280,35 @@ def run(executable, analysis, typeofsample, regions, year, luminosity, maxNumEve
     # ----- Run over the run periods -----
     hadd_cmds = {}
     for region, odir in outputdirs.items():
-      hadd_cmds[region] = 'hadd -k {0:s}/{1:s}.root'.format(odir,typeofsample)
+      hadd_cmds[region] = 'hadd -k -v 0 {0:s}/{1:s}.root'.format(odir,typeofsample)
+
     for period in datasets:
         basefile = sampleprefix+period
-        for r,outputdir in outputdirs.items():
-            filepath = '{0:s}/{1:s}.root'.format(outputdir,basefile)
-            hadd_cmds[r] += ' {0:s}'.format(filepath)
-            if os.path.exists(filepath):
-                os.popen('rm {0:s}'.format(filepath))
 
         externalXsec = -1
-        if not isData and getExternalCrossSectionFromFile:
+        if not isData and options.getExternalCrossSectionFromFile:
             externalXsec = crossSection(period, csvfile)
             print "For {0:s} {1:s} {2:.6f}".format(period, Warning("Using external cross section:"), externalXsec)
+        elif not isData and options.useInternalCrossSection:
+            externalXsec = -10  # This is a hack: values < -2 are used to signal internal cross section
+            print "For {0:s} {1:s}".format(period, Warning("Using internal cross section"))
 
+        if not os.path.exists('{0:s}/{1}.root'.format(inputdir,basefile)):
+            print Warning("The ROOT file for the sample {0:s} does not exist in {1:s}".format(basefile,inputdir))
+            return 
         print Red('\n------------------------------ {0:s} -------------------------------\n'.format(basefile))
-
+          
         # outputdir_format is something like "results/2016/VVXAnalyzer_%s". EventAnalyzer will use Form() to replace %s with the various regions to obtain the filenames
         command = "./{0:s} {1:s} '{2:s}' {3:s}/{5:s}.root {4:s}/{5:s}.root {6:.0f} {7:.0f} {8:.5f} {9:.0f} {10:b} {11:b} {12:b} {13:b}".format(executable,analysis,';'.join(regions),inputdir,outputdir_format, basefile, year, luminosity, externalXsec, maxNumEvents, doSF, unblind, nofr, forcePosWeight)
         print "Command going to be executed (run::command):", Violet(command)
         output = subprocess.check_call(command,shell=True)
         print "\n", output
 
-
+        for r,outputdir in outputdirs.items():
+            filepath = '{0:s}/{1:s}.root'.format(outputdir,basefile)
+            if os.path.exists(filepath):
+                hadd_cmds[r] += ' {0:s}'.format(filepath)
+                
 
     print Red('----------------------------------------------------------------------\n')
     for region,outputdir in outputdirs.items():
@@ -287,76 +318,115 @@ def run(executable, analysis, typeofsample, regions, year, luminosity, maxNumEve
             print "Command going to be executed (run::hadd):", Violet(hadd_cmds[region])
             output = subprocess.check_call(hadd_cmds[region],shell=True)
         elif len(datasets) == 1 and not datasets[0] == typeofsample:
-            print "One sample in the dataset, just copying it."
-            os.popen('cp {0:s}/{1:s}.root {0:s}/{2:s}.root'.format(outputdir,datasets[0],typeofsample))
+            if os.path.exists('{0:s}/{1:s}.root {0:s}/{2:s}.root'.format(outputdir,datasets[0],typeofsample)):
+                print "One sample in the dataset, just copying it."
+                os.popen('cp {0:s}/{1:s}.root {0:s}/{2:s}.root'.format(outputdir,datasets[0],typeofsample))
 
     output = {reg:'{0:s}/{1:s}.root'.format(odir,typeofsample) for reg,odir in outputdirs.items()}
     print "The output is in", Green([v for k,v in output.items()])
     return output
 
-
+###------------------------------------------------------------------------------------###
 
 def mergeDataSamples(outputLocationsDict):
+
     if(len(outputLocationsDict) == 0):
         print Red("Error") + ": outputLocations is empty!"
         exit(1)
+        
     for region,outputLocations in outputLocationsDict.items():
         failure, basename = commands.getstatusoutput('basename {0:s}'.format(outputLocations[0]))
         outputdir = outputLocations[0].replace(basename,'').rstrip('/')
-        hadd = 'hadd -k {0:s}/data.root {1:s}'.format(outputdir, ' '.join(outputLocations))
+        hadd = 'hadd -k -v 0 {0:s}/data.root {1:s}'.format(outputdir, ' '.join(outputLocations))
+        
         if os.path.exists('{0:s}/data.root'.format(outputdir)):
             os.popen('rm {0:s}/data.root'.format(outputdir))
+            
         print "Command going to be executed (mergeDataSamples::hadd):", Violet(hadd)
         output = subprocess.check_call(hadd,shell=True)
 
-def runOverCRs(executable, analysis, sample, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight, postfix = '', outputLocations = []):
-    outputCR2P2F = run(executable, analysis, sample, 'CR2P2F'+postfix, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight)    # runs over all samples in the CR2P2F control reagion
-    outputCR3P1F = run(executable, analysis, sample, 'CR3P1F'+postfix, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight)    # runs over all samples in the CR3P1F control reagion
+###------------------------------------------------------------------------------------###
+        
+def mergeCRs(analysis, year, inputLocs, antype):
+    
+    inputLocations = {}
 
-    if not os.path.exists('results/{0:s}/{1:s}_CR{2:s}'.format(str(year),analysis,postfix)): os.popen('mkdir results/{0:s}/{1:s}_CR{2:s}'.format(str(year),analysis,postfix))
-    outputRedBkg = 'results/{0:s}/{1:s}_CR{2:s}/reducible_background_from_{3:s}.root'.format(str(year), analysis, postfix, sample)
-    hadd = 'hadd -k {0:s} {1:s} {2:s}'.format(outputRedBkg, outputCR2P2F, outputCR3P1F)
+    if antype == 'CR4L':
+        inputLocations = {k: inputLocs[k] for k in CR4L_regions}
+    if antype == 'CR3L':
+        inputLocations = {k: inputLocs[k] for k in CR3L_regions}
+    if antype == 'CR_HZZ':
+        inputLocations = {k: inputLocs[k] for k in CR_HZZ_regions}
+
+        
+    outdir = 'results/{0:s}/{1:s}_{2:s}'.format(str(year),analysis,antype)
+    if not os.path.exists(outdir): os.popen('mkdir {0:s}'.format(outdir))
+    if isData:
+        outputRedBkg = '{0:s}/reducible_background.root'.format(outdir)
+    else:
+        outputRedBkg = '{0:s}/reducible_background_MC.root'.format(outdir)
+    hadd = 'hadd -k -v 0 {0:s}'.format(outputRedBkg)
+    for key, values in inputLocations.items():
+        for value in values:
+            hadd += ' {0:s}'.format(value)
+    
     if os.path.exists('{0:s}'.format(outputRedBkg)):
         os.popen('rm {0:s}'.format(outputRedBkg))
+        
     print "Command going to be executed (runOverCRs::hadd):", Violet(hadd)
     output = subprocess.check_call(hadd,shell=True)
-    outputLocations.append(outputRedBkg)
+    
+    if isData:
+        subprocess.check_call('ln -sf reducible_background.root {0:s}/data.root'.format(outdir),shell=True)
 
+###------------------------------------------------------------------------------------###        
     
 def runOverSamples(executable, analysis, typeofsample, regions, year, luminosity, maxNumEvents, knownProcesses, doSF, unblind, nofr, forcePosWeight):
 
+    outputLocations = {}
+    
     if typeofsample == 'all' or typeofsample == 'data':
-        outputLocations = {}
         for sample in knownProcesses:
             if typeofsample == 'all' or sample[0:4] == str(year):
-                print sample[0:4]
-                if region == 'all':
-                    run(executable, analysis, sample, _all_regions, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight)    # runs over all samples in all signal/control regions
+                if region == 'all':                
+                    outputLocs = run(executable, analysis, sample, _all_regions, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight) # runs over all samples in all regions
+                    for r,loc in outputLocs.items():
+                        outputLocations.setdefault(r, []).append(loc)
 
-                elif region == 'CR':
-                    runOverCRs(executable, analysis, sample, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight, "",outputLocations)
-                elif region == 'CR_HZZ': 
-                    runOverCRs(executable, analysis, sample, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight, '_HZZ',outputLocations)
                 else:
-                    outputLocs = run(executable, analysis, sample, regions, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight)  # runs over all samples in specific control regions
+                    outputLocs = run(executable, analysis, sample, regions, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight)      # runs over all samples in specific regions
                     for r,loc in outputLocs.items():
                         outputLocations.setdefault(r, []).append(loc)
 
         if typeofsample == 'data':
             mergeDataSamples(outputLocations)
-            
+
+        if region == 'CR4L' or region == 'CR_HZZ' or region == 'CR3L':
+            mergeCRs(analysis, year, outputLocations, region)
+
+        if region == 'all':
+            mergeCRs(analysis, year, outputLocations, 'CR4L')
+            mergeCRs(analysis, year, outputLocations, 'CR3L')
+
     else:
         if region == 'all':
-            run(executable, analysis, typeofsample, all_regions, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight)  # runs over a specific sample in all signal/control regions
+            outputLocs = run(executable, analysis, typeofsample, _all_regions, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight)   # runs over a specific sample in all signal/control regions
+            for r,loc in outputLocs.items():
+                outputLocations.setdefault(r, []).append(loc)
 
-        elif region == 'CR':
-            runOverCRs(executable, analysis, typeofsample, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight)
-        elif region == 'CR_HZZ':
-            runOverCRs(executable, analysis, typeofsample, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight, postfix='_HZZ')
+            mergeCRs(analysis, year, outputLocations, 'CR4L')
+            mergeCRs(analysis, year, outputLocations, 'CR3L')
+           
         else:
-            run(executable, analysis, typeofsample, regions, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight) # runs over a specific sample in a specific region
+            outputLocs = run(executable, analysis, typeofsample, regions, year, luminosity, maxNumEvents, doSF, unblind, nofr, forcePosWeight)        # runs over a specific sample in specific regions
+            for r,loc in outputLocs.items():
+                outputLocations.setdefault(r, []).append(loc)
 
+            if region == 'CR4L' or region == 'CR_HZZ' or region == 'CR3L':
+                mergeCRs(analysis, year, outputLocations, region)
 
+###------------------------------------------------------------------------------------###        
+                
 ###################################
 ### Actual steering of the code ###
 ###################################
@@ -366,13 +436,14 @@ if year == 1618:
         if options.csvfile is None:
             if isData:
                 csvfile = "../Producers/python/samples_"+str(year)+"UL_Data.csv"
-            else: 
+            else:
                 csvfile = "../Producers/python/samples_"+str(year)+"UL_MC.csv"
-            
+                
         print "CSV file: ", Blue(csvfile)
+
         knownProcesses = typeOfSamples(csvfile)
         # knownProcesses.append('test')
-
+        
         runOverSamples(executable, analysis, typeofsample, regions, year, luminosity, maxNumEvents, knownProcesses, doSF, unblind, nofr, forcePosWeight)
 
 elif year in years:
@@ -383,14 +454,14 @@ elif year in years:
             csvfile = "../Producers/python/samples_"+str(year)+"UL_MC.csv"
         
     print "CSV file: ", Blue(csvfile)
+
     knownProcesses = typeOfSamples(csvfile)
     # knownProcesses.append('test')
-
 
     runOverSamples(executable, analysis, typeofsample, regions, year, luminosity, maxNumEvents, knownProcesses, doSF, unblind, nofr, forcePosWeight)
 
 else:
-    print "Unknown year"
+    print "Unknown year", year
     sys.exit(1)    
        
 print "\nJob status: ", OK("DONE"),"\n"

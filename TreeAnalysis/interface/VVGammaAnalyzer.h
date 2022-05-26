@@ -9,6 +9,8 @@
  *  \author A. Mecca - UNITO <alberto.mecca@cern.ch>
  */
 
+#include <set>
+#include <map>
 
 #include "EventAnalyzer.h"
 #include "RegistrableAnalysis.h"
@@ -25,33 +27,36 @@ public:
 		   configuration){
     //theHistograms.profile(genCategory);
     // Memory allocation
+    leptons_      = new std::vector<const phys::Lepton*>;
     genQuarks_    = new std::vector<phys::Particle>;
-		genChLeptons_ = new std::vector<phys::Particle>;
-		genNeutrinos_ = new std::vector<phys::Particle>;
-		genPhotons_   = new std::vector<phys::Particle>;
-	
-		genZlepCandidates_ = new std::vector<phys::Boson<phys::Particle>>;
-		genWlepCandidates_ = new std::vector<phys::Boson<phys::Particle>>;
-		genZhadCandidates_ = new std::vector<phys::Boson<phys::Particle>>;
-		genWhadCandidates_ = new std::vector<phys::Boson<phys::Particle>>;
-		
-		goodPhotons_ = new std::vector<phys::Photon>;
+    genChLeptons_ = new std::vector<phys::Particle>;
+    genNeutrinos_ = new std::vector<phys::Particle>;
+    genPhotons_   = new std::vector<phys::Particle>;
+    
+    genZlepCandidates_ = new std::vector<phys::Boson<phys::Particle>>;
+    genWlepCandidates_ = new std::vector<phys::Boson<phys::Particle>>;
+    genZhadCandidates_ = new std::vector<phys::Boson<phys::Particle>>;
+    genWhadCandidates_ = new std::vector<phys::Boson<phys::Particle>>;
+    kinPhotons_  = new std::vector<phys::Photon>;
+    goodPhotons_ = new std::vector<phys::Photon>;
   }
 
   virtual ~VVGammaAnalyzer(){
-  	delete genQuarks_;
-		delete genChLeptons_;
-		delete genNeutrinos_;
-		delete genPhotons_;
-	
-		delete genZlepCandidates_;
-		delete genWlepCandidates_;
-		delete genZhadCandidates_;
-		delete genWhadCandidates_;
-		
-		delete goodPhotons_;
-		
-		//delete photonSFhist;
+    delete leptons_;
+    delete genQuarks_;
+    delete genChLeptons_;
+    delete genNeutrinos_;
+    delete genPhotons_;
+    
+    delete genZlepCandidates_;
+    delete genWlepCandidates_;
+    delete genZhadCandidates_;
+    delete genWhadCandidates_;
+    
+    delete kinPhotons_;
+    delete goodPhotons_;
+    
+    //delete photonSFhist;
   }
 	
 	virtual void begin();
@@ -66,7 +71,9 @@ public:
 
  private:
  	
+	std::vector<const phys::Lepton*>* leptons_;
  	// Photons with pt > 20 (already in ntuples), at least loose (cut-based) ID
+	std::vector<phys::Photon>* kinPhotons_;
  	std::vector<phys::Photon>* goodPhotons_;
  	
  	// Vectors of gen particles
@@ -90,14 +97,26 @@ public:
  	
  	// Basic histograms
  	void genEventHistos();
+	void baseHistos_cut();
+	//void baseHistos_analyze();
+	void PKU_comparison();
  	
  	// Sub analyses
+	void LeptonFakeRate();
+	void PhotonFakeRate();
  	void effPhotons(); // uses goodPhotons_ and genPhotons_
  	
  	
  	void endNameHistos();
  	
  	// Utilities
+	void initCherryPick();
+	bool cherrypickEvt() const;
+	std::map<phys::RegionTypes,
+	  std::map<unsigned long,        // run
+	    std::map<unsigned long,      // lumi block
+	      std::set<unsigned long>>>> // event
+	        cherryEvents;
  	/*
  	double getSF(const phys::Photon& ph){ 
  		if(photonSFhist)
@@ -159,7 +178,7 @@ public:
   	}
 		
 		static const std::vector<double> pt_bins;
-		
+		static const std::vector<double> pt_bins_LFR;
 		static const std::vector<double> eta_bins;
 		static const std::vector<double> aeta_bins;
   

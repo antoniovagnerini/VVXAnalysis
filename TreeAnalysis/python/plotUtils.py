@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-import ROOT, copy, sys
+import ROOT, copy, sys, os
 from ROOT import gSystem, TCanvas, TH1,  TPad, gStyle, TLegend, THStack, TGraphAsymmErrors,Math
 from readSampleInfo import *
 from collections import OrderedDict
@@ -8,12 +8,77 @@ from Colours import *
 import ctypes
 import re
 
+##### Define type of samples ##### FIXME: make a class?
+
+qqZZ_pow = [{"sample":'ZZTo4l'         , "color":ROOT.kAzure-4 , "name":'qq/qg #rightarrow ZZ(+jets)', "kfactor": 1.1}]
+qqZZ_mad = [{"sample":'ZZTo4lamcatnlo' , "color":ROOT.kAzure-4 , "name":'qq/qg #rightarrow ZZ(+jets)', "kfactor": 1.1}]
+
+ggZZ     = [{"sample":'ggZZ'           , "color":ROOT.kAzure-5 , "name":'gg #rightarrow ZZ(+jets)'   , "kfactor": 1.7}]
+vbsZZ    = [{"sample":'ZZ4lJJ'         , "color":ROOT.kAzure-6 , "name":'VBS', "kfactor": 1.0}]
+HZZ      = [{"sample":'HZZ'            , "color":ROOT.kAzure-7 , "name":'higgs', "kfactor": 1.0}]
+    
+WZ       = [{"sample":'WZTo3LNu'       , "color":ROOT.kRed+2   , "name":'WZ', "kfactor": 1.0}]
+
+WW       = [{"sample":'WWTo2L2Nu'      , "color":ROOT.kRed+6   , "name":'WW', "kfactor": 1.0}]
+
+tt       = [{"sample":'TTTo2L2Nu'      , "color":ROOT.kRed-4   , "name":'t#bar{t}', "kfactor": 1.0},
+            {"sample":'TTWJets'        , "color":ROOT.kRed-4   , "name":'t#bar{t}', "kfactor": 1.0},
+            {"sample":'TTZJets'        , "color":ROOT.kRed-4   , "name":'t#bar{t}', "kfactor": 1.0},
+            {"sample":'TTGJets'        , "color":ROOT.kRed-4   , "name":'t#bar{t}', "kfactor": 1.0}]
+
+W        = [{"sample":'WJetsToLNu'     , "color":ROOT.kGreen-1 , "name":'W+jets', "kfactor": 1.0}]
+
+DY       = [{"sample":'DYJetsToLL_M50' , "color":ROOT.kGreen-5 , "name":'DY', "kfactor": 1.0}]
+
+ttXY     = [{"sample":'ttXY'           , "color":ROOT.kBlue-1  , "name":'ttXY', "kfactor": 1.0}]
+
+ZG       = [{"sample":'ZGToLLG'        , "color":ROOT.kGreen-4 , "name":'Z\gamma', "kfactor": 1.0}]
+
+WWW      = [{"sample":'WWW'            , "color":ROOT.kGreen-1 , "name":'others', "kfactor": 1.0}]
+
+WWZ      = [{"sample":'WWZ'            , "color":ROOT.kOrange  , "name":'WWZ', "kfactor": 1.0}]
+ttZ      = [{"sample":'TTZJets_M10_MLM', "color":ROOT.kOrange-5, "name":'t#bar{t}Z', "kfactor": 1.0}]
+
+data     = [{"sample":'data'           , "color":ROOT.kBlack   , "name":'Data', "kfactor": 1.0}]
+
+def getSamplesByRegion(region, MCSet, predType):
+    
+    qqZZ = {}
+    if MCSet == 'pow':
+        qqZZ = qqZZ_pow
+    elif MCSet == 'mad':
+        qqZZ = qqZZ_mad
+    else: sys.exit("Wrong Set, choose pow or mad")
+
+    
+    if region == 'SR4P':
+        if predType == 'fromCR':
+            tot = qqZZ + ggZZ + vbsZZ + HZZ + WWZ + ttZ    
+        elif predType == 'fullMC':
+            tot = qqZZ + ggZZ + vbsZZ + HZZ + WZ + tt + DY + WWW + WWZ + ttZ + ZG + ttXY + WW + W
+        else:
+            sys.exit("Wrong prediction type, fromCR from MC still needs to be added")
+            
+    elif region == 'SR3P':
+        if predType == 'fromCR':
+            tot = qqZZ + ggZZ + vbsZZ + HZZ + WWZ + ttZ + WZ    
+        elif predType == 'fullMC':
+            tot = qqZZ + ggZZ + vbsZZ + HZZ + WZ + tt + DY + WWW + WWZ + ttZ + ZG + ttXY + WW + W
+        else:
+            sys.exit("Wrong prediction type, fromCR from MC still needs to be added")
+
+    else:
+        tot = qqZZ + ggZZ + vbsZZ + HZZ + WZ + tt + DY + WWW + WWZ + ttZ + ZG + ttXY + WW + W
+        
+
+    return tot
+            
 def GetTypeofsamples(category,Set):
     
-    signal_qq_pow =  [{"sample":'ZZTo4l',"color":ROOT.kAzure-4,"name":'qq/qg #rightarrow ZZ(+jets)'}]
+    signal_qq_pow =  [{"sample":'ZZTo4l'        ,"color":ROOT.kAzure-4,"name":'qq/qg #rightarrow ZZ(+jets)'}]
     signal_qq_mad =  [{"sample":'ZZTo4lamcatnlo',"color":ROOT.kAzure-4,"name":'qq/qg #rightarrow ZZ(+jets)'}] 
 
-    if Set=="pow":   signal_qq = signal_qq_pow
+    if   Set=="pow": signal_qq = signal_qq_pow
     elif Set=="mad": signal_qq = signal_qq_mad
     else: sys.exit("Wrong Set, choose pow or mad")
 
@@ -59,100 +124,86 @@ def GetTypeofsamples(category,Set):
     return typeofsamples
     
 
-####### Extract MC plot #########
-def GetMCPlot(inputdir, category, plot,Addfake,MCSet,rebin):
-    print Red("\n#########################################\n############## Monte Carlo ##############\n#########################################\n")
-    print "Category",category
+####### Extract predictions plot #########
+def GetPredictionsPlot(region, inputdir, plot, predType, MCSet, rebin):
+
+    controlRegion = ''
+    if region == 'SR4P':
+        controlRegion = 'CR4L'
+    elif region == 'SR3P':
+        controlRegion = 'CR3L'
+    else:
+        print "You should know what you are doing"
+        #sys.exit("ERROR, check region") 
+        
+    
+    print Red("\n#########################################\n############## Predictions ##############\n#########################################\n")
     print "plot",plot
     leg = TLegend(0.6,0.52,0.79,0.87)
     leg.SetBorderSize(0)
     leg.SetTextSize(0.025)
 
-    bkgsamples = GetTypeofsamples("IrrBkg",MCSet)  
-    typeofsamples = GetTypeofsamples(category,MCSet)
+    typeofsamples = getSamplesByRegion(region, MCSet, predType)
 
     files = {}
     filesbkg = {}
     stack = ROOT.THStack("stack",plot+"_stack")
-    ErrStat = ctypes.c_double(0.) #ROOT.Double(0.)
+    ErrStat = ctypes.c_double(0.)
 
-    if category != "RedBkg" and category != "IrrBkg":
-        print Red("\n######### Contribution to Irreducible Background#########\n")    
-        
-        for b in bkgsamples:
-            filesbkg[b["sample"]] = ROOT.TFile(inputdir+b["sample"]+".root")
-            Var     = plot.replace("ZZTo4l","")
-            bsum    = ROOT.TH1F()    
-            print Blue("### "+plot+" ###")
-            NoSamples = "For "+plot+" there are no events in "
-            isFirst=1
-        for b in bkgsamples:
-            hb = filesbkg[b["sample"]].Get(plot)  
-            if hb==None:
-                print "For sample ", b["sample"], "has no enetries or is a zombie"       
-                NoSamples+=b["sample"]+" "
-                continue
-            if isFirst:
-                bsum=copy.deepcopy(hb)            
-                print "{0} contribution {1} {2:.3f} +- {3: .3f} \n".format(b["sample"],(40-len(b["sample"]))*" ",hb.IntegralAndError(1,-1,ErrStat),ErrStat.value)
-                isFirst=0
-                continue 
-            
-            print "{0} contribution {1} {2:.3f} +- {3: .3f} \n".format(b["sample"],(40-len(b["sample"]))*" ",hb.IntegralAndError(1,-1,ErrStat),ErrStat.value)
-            bsum.Add(hb)        
-                
-        if rebin != 1:  bsum.Rebin(rebin)
-        #bsum.Rebin(rebin)
-        bsum.SetName("hirr")
-        stack.Add(bsum)
-            
-        leg.AddEntry(bsum, "Irreducible background","f")
-        bsum.SetLineColor(b["color"])
-        bsum.SetFillColor(b["color"])           
-            
-
-    if Addfake:
-        print Red("\n######### Contribution to Reducible Background#########\n")    
-        hfake = GetFakeRate(inputdir.replace("SR4P/",""),plot,"data",rebin) 
+    if predType == 'fromCR':
+        print Green("\nNon-prompt leptons background"),
+        hfake = GetFakeRate(inputdir.replace(region,controlRegion),plot,"data",rebin) 
         stack.Add(hfake)
-        leg.AddEntry(hfake,"Reducible background","f")
+        leg.AddEntry(hfake,"Non-prompt leptons","f")
      
     LastColor = ROOT.kBlack
 
     for sample in typeofsamples:
+        #if os.path.exists(inputdir+sample["sample"]+".root"):
+        files[sample["sample"]] = ROOT.TFile(inputdir+sample["sample"]+".root")
+        #else:
+        #    print "{0:s} requested, but the corresponding root file does not exist in {1:s}".format(sample["sample"],inputdir)
+            
+    totalMC = 0
 
-        #if category=="RedBkg":   files[sample["sample"]] = ROOT.TFile(inputdir+"reducible_background_from_"+sample["sample"]+".root") /To take mc reducible bkg with the data drive method
-        if category=="RedBkg": 
-            inputdir = inputdir.replace("CR4L","SR4P")
-            files[sample["sample"]] = ROOT.TFile(inputdir+sample["sample"]+".root")
-        else:                    files[sample["sample"]] = ROOT.TFile(inputdir+sample["sample"]+".root")
-
-        totalMC = 0
-
-    print Red("\n######### Contribution to signal  #########\n")
+    print Red("\n######### Contribution to {0:s}  #########\n".format(region))
 
     for sample in typeofsamples:
-
+       
+        # 
+        #     
+        #     continue
+        # f = ROOT.TFile(inputdir+sample["sample"]+".root")
+        # if f.IsOpen():
+        #     h = f.Get(plot)
+        #     if not h:
+        #         print sample["sample"],"has no enetries or is a zombie"
+        #         continue
+        
         h = files[sample["sample"]].Get(plot)
         if not h:
             print sample["sample"],"has no enetries or is a zombie"
             continue
+        
+        h.Scale(sample["kfactor"])
 
-        print "{0} contribution {1} {2:.3f} +- {3: .3f} \n".format(sample["sample"],(40-len(sample["sample"]))*" ",h.IntegralAndError(0,-1,ErrStat),ErrStat.value)
+        if any(cr in inputdir for cr in ['CR2P2F','CR100','CR010','CR001']):
+            h.Scale(-1)
 
-        totalMC += h.Integral()
+        
+        print "{0} contribution \t {1:.3f} +- {2: .3f} \n".format(sample["sample"], h.IntegralAndError(0,-1,ErrStat), ErrStat.value)
+
+        # Get overflow events too#
+        totalMC += h.Integral(0,-1)
 
         if rebin!=1: h.Rebin(rebin) 
 
-        if "IrrBkg" in category:    h.SetLineColor(1)
-        else:   h.SetLineColor(sample["color"])
+        h.SetLineColor(sample["color"])
 
         h.SetFillColor(sample["color"])
         h.SetMarkerStyle(21)
         h.SetMarkerColor(sample["color"])
 
-        if "CR2P2F" in inputdir:
-            h.Scale(-1)
         stack.Add(h)
         if LastColor!=sample["color"]:
             leg.AddEntry(h,sample["name"],"f")
@@ -169,29 +220,33 @@ def GetDataPlot(inputdir, plot, Region,rebin):
     print "\n",""
     print Red("\n############################################\n################### DATA ###################\n############################################\n")
     files = {}
-    typeofsamples = GetTypeofsamples("data","pow")
+    typeofsamples = data 
     hdata=ROOT.TH1F()
-#    plot = plot.replace("_JERCentralSmear","") #FIXME
+
+    print inputdir
+    
     for sample in typeofsamples:
         files[sample["sample"]] = ROOT.TFile(inputdir+sample["sample"]+".root")
     
     isFirst=1
     for sample in typeofsamples:
         h = files[sample["sample"]].Get(plot)
+
+        if any(cr in inputdir for cr in ['CR2P2F','CR100','CR010','CR001']):
+            h.Scale(-1)
+
+        
         if not h:
             print sample['sample'],'has no entries or is a zombie'
             continue
 
-        print sample["sample"], "..........................",h.Integral(0,-1)       
+        print sample["sample"],"in", Region, "..........................",h.Integral(0,-1)       
         if isFirst:
             hdata=copy.deepcopy(h)
             isFirst=0
             continue
-        hdata.Add(h)   
-    if 1+inputdir.find("CR2P2F"): 
-        print "Dir",inputdir,inputdir.find("CR2P2F")                
-        hdata.Add(hdata,-2)     
-    #hdata = fdata.Get(plot)
+        hdata.Add(h)
+        
     hdata.SetMarkerColor(ROOT.kBlack)
     hdata.SetLineColor(ROOT.kBlack)
     hdata.SetMarkerStyle(20)
@@ -199,7 +254,7 @@ def GetDataPlot(inputdir, plot, Region,rebin):
 
     if rebin!=1: hdata.Rebin(rebin) 
 
-    print "Total data ..........................",hdata.Integral(0,-1)
+    print "Total data in {0:s} region .......................... {1:.2f}".format(Region,hdata.Integral(0,-1))
     print "_________________________ "   
     DataGraph=SetError(hdata,Region,False)
     DataGraph.SetMarkerStyle(20)
@@ -340,35 +395,30 @@ def GetMCPlot_fstate(inputdir, category, plot,Addfake,MCSet,rebin):
 
 
 def GetFakeRate(inputdir,plot, method,rebin):
-
-
-#    print Red("\n######### Reducible Background #########\n")
-
-
+    
     if method=="MC":
         print " Non MC method yet"
         #fileFake = ROOT.TFile(inputdir+"data.root")
         return 0.
     else:
-        fileFake = ROOT.TFile(inputdir+"CR4L/data.root")
+        fileFake = ROOT.TFile(inputdir+"data.root")
+
     hFakeRate=ROOT.TH1F()
-    #if "Jet" in plot:
-     #   plot = plot.replace("_JERCentralSmear","")
+
 
     hFakeRate = fileFake.Get(plot)
-    Err=ctypes.c_double(0.)
-    Integr= hFakeRate.IntegralAndError(0,-1,Err)
+    Err       = ctypes.c_double(0.)
+    Integr    = hFakeRate.IntegralAndError(0,-1,Err)
+    ErrStat   = ctypes.c_double(0.)
+
     if rebin != 1: hFakeRate.Rebin(rebin)
+
     hFakeRate.SetFillColor(ROOT.kGray)
     hFakeRate.SetLineColor(ROOT.kGray)
     hFakeRate.SetMarkerStyle(21)
     hFakeRate.SetMarkerSize(.5)
 
-    ErrStat = ctypes.c_double(0.)
-    #    print "\n","Total integral",FinState,"contribution ----------> ",Integr," +- ",Err,"\n"
-#    print "{0} contribution {1} {2:.3f} +- {3: .3f} \n".format(b["sample"],(40-len(b["sample"]))*" ",hb.IntegralAndError(1,-1,ErrStat),ErrStat)
-
-    print "Total contribution {0} {1:.3f} +- {2: .3f} \n".format(38*" ",hFakeRate.IntegralAndError(1,-1,ErrStat),ErrStat.value)
+    print "contribution \t {0:.3f} +- {1: .3f} \n".format(hFakeRate.IntegralAndError(1,-1,ErrStat),ErrStat.value)
 
     return  copy.deepcopy(hFakeRate) 
 
